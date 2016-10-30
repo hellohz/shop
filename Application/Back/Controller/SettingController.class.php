@@ -4,7 +4,7 @@ namespace Back\Controller;
 use Think\Controller;
 use Think\Page;
 
-class BrandController extends Controller
+class SettingController extends Controller
 {
     /**
      * 添加动作
@@ -14,8 +14,8 @@ class BrandController extends Controller
         // 判断是否为POST数据提交
         if (IS_POST) {
             // 数据处理
-            // $model = M('Brand');
-            $model = D('Brand');
+            // $model = M('Setting');
+            $model = D('Setting');
             $result = $model->create();
 
             if (!$result) {
@@ -41,50 +41,34 @@ class BrandController extends Controller
     public function listAction()
     {
 
-        $model = M('Brand');  
+        // 获取分组
+        $m_group = M('SettingGroup');
+        $group_rows = $m_group->select();
+        $this->assign('group_rows', $group_rows);
 
-        // 分页, 搜索, 排序等
-        // 搜索, 筛选, 过滤
-        // 判断用户传输的搜索条件, 进行处理
-        // $filter 表示用户输入的内容
-        // $cond 表示用在模型中查询条件
-        $cond = [];// 初始条件
-        $filter['filter_title'] = I('get.filter_title', '', 'trim');
-        if($filter['filter_title'] !== '') {
-            $cond['title'] = ['like', '%'.$filter['filter_title'].'%'];// 适当考虑索引问题
+        // 获取配置项
+        $m_setting = D('Setting');
+        $setting_rows = $m_setting
+                    ->alias('s')
+                    ->join('left join __SETTING_TYPE__ st Using(setting_type_id)')
+                    ->relation(true)
+                    ->select();
+
+        // 遍历所有的配置项, 分组管理
+        $group_setting = [];
+        foreach($setting_rows as $setting) {
+            // 判断是否为多选类型, 如果是, 拆分value为数组
+            if ($setting['type_title'] == 'select-multi') {
+                $setting['value_list'] = explode(',', $setting['value']);
+            }
+            // 当前分组ID
+            $group_id = $setting['setting_group_id'];
+            // 将配置项, 存储在以组ID为下标的数组.
+            $group_setting[$group_id][] = $setting;
         }
-        // 分配筛选数据, 到模板, 为了展示搜索条件
-        $this->assign('filter', $filter);
-
-        // 排序
-        // 考虑用户所传递的排序方式和字段
-        $order['field'] = I('get.field', 'sort_number', 'trim');// 初始排序, 字段
-        $order['type'] = I('get.type', 'asc', 'trim');// 初始排序, 方式
-        
-        $sort = [$order['field'] => $order['type']];
-        // $sort = $order['field'] . ' ' . $order['type'];
-        $this->assign('order', $order);
-
-        // 分页
-        $page = I('get.p', '1');// 当前页码
-        $pagesize = 10;// 每页记录数\\
-
-        // 获取总记录数
-        $count = $model->where($cond)->count();// 合计
-        $t_page = new Page($count, $pagesize);// use Think\Page;
-        // 配置格式
-        $t_page->setConfig('next', '&gt;');
-        $t_page->setConfig('last', '&gt;|');
-        $t_page->setConfig('prev', '&lt;');
-        $t_page->setConfig('first', '|&lt;');
-        $t_page->setConfig('theme', '<div class="col-sm-6 text-left"><ul class="pagination">%FIRST% %UP_PAGE% %LINK_PAGE% %DOWN_PAGE% %END% </ul></div><div class="col-sm-6 text-right">%HEADER%</div>');
-        $t_page->setConfig('header', '显示开始 %FIRST_ROW% 到 %LAST_ROW% 之 %TOTAL_ROW% （总 %TOTAL_PAGE% 页）');
-        // 生成HTML代码
-        $page_html = $t_page->show();
-        $this->assign('page_html', $page_html);
-          
-        $rows = $model->where($cond)->order($sort)->page("$page, $pagesize")->select();
-        $this->assign('rows', $rows);
+        // [1=>[配置项1, 配置项2]
+        // [2=>[配置项3, 配置项4]
+        $this->assign('group_setting', $group_setting);
 
 
         $this->display();
@@ -98,7 +82,7 @@ class BrandController extends Controller
 
         if (IS_POST) {
 
-            $model = D('Brand');
+            $model = D('Setting');
             $result = $model->create();
 
             if (!$result) {
@@ -115,8 +99,8 @@ class BrandController extends Controller
         } else {
 
             // 获取当前编辑的内容
-            $brand_id = I('get.brand_id', '', 'trim');
-            $this->assign('row', M('Brand')->find($brand_id));
+            $setting_id = I('get.setting_id', '', 'trim');
+            $this->assign('row', M('Setting')->find($setting_id));
 
             // 展示模板
             $this->display();
@@ -133,6 +117,7 @@ class BrandController extends Controller
         $operate = I('post.operate', 'delete', 'trim');
         // 确定ID列表
         $selected = I('post.selected', []);
+        
         // 如果为空数组, 表示没有选择, 则立即跳转回列表页.
         if (empty($selected)) {
             $this->redirect('list', [], 0);
@@ -142,8 +127,8 @@ class BrandController extends Controller
         switch ($operate) {
             case 'delete':
                 // 使用in条件, 删除全部的品牌
-                $cond = ['brand_id' => ['in', $selected]];
-                M('Brand')->where($cond)->delete();
+                $cond = ['setting_id' => ['in', $selected]];
+                M('Setting')->where($cond)->delete();
                 $this->redirect('list', [], 0);
                 break;
             default:
@@ -177,7 +162,7 @@ class BrandController extends Controller
                     $cond['brand_id'] = ['neq', $brand_id];
                 }
                 // 获取模型后, 利用条件获取匹配的记录数
-                $count = M('Brand')->where($cond)->count();
+                $count = M('Setting')->where($cond)->count();
                 // 如果记录数>0, 条件为真, 说明存在记录, 重复, 验证未通过, 响应false
                 echo $count ? 'false' : 'true';
             break;
