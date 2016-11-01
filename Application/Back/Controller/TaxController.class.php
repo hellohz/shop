@@ -3,10 +3,8 @@ namespace Back\Controller;
 
 use Think\Controller;
 use Think\Page;
-use Think\Upload;
-use Think\Image;
 
-class BrandController extends Controller
+class TaxController extends Controller
 {
     /**
      * 添加动作
@@ -16,39 +14,8 @@ class BrandController extends Controller
         // 判断是否为POST数据提交
         if (IS_POST) {
             // 数据处理
-            // 文件上传
-            $t_upload = new Upload;
-            // 配置上传的属性
-            $t_upload->rootPath = APP_PATH . 'Upload/';
-            $t_upload->savePath = 'Brand/';
-            $t_upload->exts = ['jpeg', 'jpg', 'gif', 'png'];
-            $t_upload->maxSize = 1*1024*1024;// 1M
-
-            // 执行上传
-            $upload_info = $t_upload->uploadOne($_FILES['logo_ori']);
-            // dump($upload_info); die;
-            if ($upload_info) {
-                // LOGO上传成功
-                $_POST['logo_ori'] = $upload_info['savepath'] . $upload_info['savename'];
-                // 制作缩略图
-                $t_image = new Image;
-                $t_image->open(APP_PATH . 'Upload/' . $_POST['logo_ori']);
-                $w = getConfig('brand_thumb_width', 100);
-                $h = getConfig('brand_thumb_height', 100);
-                // 确定缩略图存储位置
-                $thumb_root = './Public/Thumb/';
-                $thumb_path =  $thumb_root . $upload_info['savepath'];
-                // 保证目录存在
-                if (! is_dir ($thumb_path)) {
-                    mkdir ($thumb_path, 0775, true);
-                }
-                $thumb_file = $thumb_path . 'thumb_' . $w . 'x'. $h . '_' . $upload_info['savename'];
-                $t_image->thumb($w, $h)->save($thumb_file);
-                // 记录缩略图地址
-                $_POST['logo'] = $upload_info['savepath'] . 'thumb_' . $w . 'x'. $h . '_' . $upload_info['savename'];
-            }
-
-            $model = D('Brand');
+            // $model = M('Tax');
+            $model = D('Tax');
             $result = $model->create();
 
             if (!$result) {
@@ -74,28 +41,29 @@ class BrandController extends Controller
     public function listAction()
     {
 
-        $model = M('Brand');  
+        $model = M('Tax');  
 
         // 分页, 搜索, 排序等
         // 搜索, 筛选, 过滤
         // 判断用户传输的搜索条件, 进行处理
         // $filter 表示用户输入的内容
         // $cond 表示用在模型中查询条件
-        $cond = [];// 初始条件
-        $filter['filter_title'] = I('get.filter_title', '', 'trim');
-        if($filter['filter_title'] !== '') {
-            $cond['title'] = ['like', '%'.$filter['filter_title'].'%'];// 适当考虑索引问题
-        }
+        $cond = $filter = [];// 初始条件
+        // 在生成代码的基础上, 自定义完成搜索条件
+        // 
         // 分配筛选数据, 到模板, 为了展示搜索条件
         $this->assign('filter', $filter);
 
         // 排序
+        $sort = $order = [];
         // 考虑用户所传递的排序方式和字段
-        $order['field'] = I('get.field', 'sort_number', 'trim');// 初始排序, 字段
-        $order['type'] = I('get.type', 'asc', 'trim');// 初始排序, 方式
-        
-        $sort = [$order['field'] => $order['type']];
-        // $sort = $order['field'] . ' ' . $order['type'];
+        // 在生成代码的基础上,自定义默认的排序字段(假设,表中存在sort_number字段, 不存在需要修改)
+        // $order['field'] = I('get.field', 'sort_number', 'trim');// 初始排序, 字段
+        // $order['type'] = I('get.type', 'asc', 'trim');// 初始排序, 方式
+
+        if (!empty($order)) {
+            $sort = $order['field'] . ' ' . $order['type'];
+        }
         $this->assign('order', $order);
 
         // 分页
@@ -131,7 +99,7 @@ class BrandController extends Controller
 
         if (IS_POST) {
 
-            $model = D('Brand');
+            $model = D('Tax');
             $result = $model->create();
 
             if (!$result) {
@@ -148,8 +116,8 @@ class BrandController extends Controller
         } else {
 
             // 获取当前编辑的内容
-            $brand_id = I('get.brand_id', '', 'trim');
-            $this->assign('row', M('Brand')->find($brand_id));
+            $tax_id = I('get.tax_id', '', 'trim');
+            $this->assign('row', M('Tax')->find($tax_id));
 
             // 展示模板
             $this->display();
@@ -166,6 +134,7 @@ class BrandController extends Controller
         $operate = I('post.operate', 'delete', 'trim');
         // 确定ID列表
         $selected = I('post.selected', []);
+        
         // 如果为空数组, 表示没有选择, 则立即跳转回列表页.
         if (empty($selected)) {
             $this->redirect('list', [], 0);
@@ -175,8 +144,8 @@ class BrandController extends Controller
         switch ($operate) {
             case 'delete':
                 // 使用in条件, 删除全部的品牌
-                $cond = ['brand_id' => ['in', $selected]];
-                M('Brand')->where($cond)->delete();
+                $cond = ['tax_id' => ['in', $selected]];
+                M('Tax')->where($cond)->delete();
                 $this->redirect('list', [], 0);
                 break;
             default:
@@ -210,7 +179,7 @@ class BrandController extends Controller
                     $cond['brand_id'] = ['neq', $brand_id];
                 }
                 // 获取模型后, 利用条件获取匹配的记录数
-                $count = M('Brand')->where($cond)->count();
+                $count = M('Tax')->where($cond)->count();
                 // 如果记录数>0, 条件为真, 说明存在记录, 重复, 验证未通过, 响应false
                 echo $count ? 'false' : 'true';
             break;

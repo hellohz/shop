@@ -3,11 +3,31 @@ namespace Back\Controller;
 
 use Think\Controller;
 use Think\Page;
-use Think\Upload;
-use Think\Image;
 
-class BrandController extends Controller
+class GoodsController extends Controller
 {
+    /**
+     * 将对应的goodsID的的商品信息加入到索引中
+     * @param [type] $goods_id [description]
+     */
+    protected function addIndex($goods_id)
+    {
+        // 利用商品ID, 获取需要加入到索引中的文档信息
+        $row = M('Goods')->field('goods_id, name, UPC, description, b.title brand_title, c.title category_title, price, quantity, date_available, g.sort_number')
+                        ->alias('g')
+                        ->join('left join __BRAND__ b using(brand_id)')
+                        ->join('left join __CATEGORY__ c using(category_id)')
+                        ->find($goods_id);
+        // 获取索引管理对象
+        require VENDOR_PATH . 'XunSearch/lib/XS.php';
+        $xs = new \XS('goods');
+        $index = $xs->index;
+        // 索引文档对象处理
+        $doc = new \XSDocument;
+        $doc->setFields($row);
+        // 添加索引
+        $index->add($doc);
+    }
     /**
      * 添加动作
      */
@@ -16,39 +36,8 @@ class BrandController extends Controller
         // 判断是否为POST数据提交
         if (IS_POST) {
             // 数据处理
-            // 文件上传
-            $t_upload = new Upload;
-            // 配置上传的属性
-            $t_upload->rootPath = APP_PATH . 'Upload/';
-            $t_upload->savePath = 'Brand/';
-            $t_upload->exts = ['jpeg', 'jpg', 'gif', 'png'];
-            $t_upload->maxSize = 1*1024*1024;// 1M
-
-            // 执行上传
-            $upload_info = $t_upload->uploadOne($_FILES['logo_ori']);
-            // dump($upload_info); die;
-            if ($upload_info) {
-                // LOGO上传成功
-                $_POST['logo_ori'] = $upload_info['savepath'] . $upload_info['savename'];
-                // 制作缩略图
-                $t_image = new Image;
-                $t_image->open(APP_PATH . 'Upload/' . $_POST['logo_ori']);
-                $w = getConfig('brand_thumb_width', 100);
-                $h = getConfig('brand_thumb_height', 100);
-                // 确定缩略图存储位置
-                $thumb_root = './Public/Thumb/';
-                $thumb_path =  $thumb_root . $upload_info['savepath'];
-                // 保证目录存在
-                if (! is_dir ($thumb_path)) {
-                    mkdir ($thumb_path, 0775, true);
-                }
-                $thumb_file = $thumb_path . 'thumb_' . $w . 'x'. $h . '_' . $upload_info['savename'];
-                $t_image->thumb($w, $h)->save($thumb_file);
-                // 记录缩略图地址
-                $_POST['logo'] = $upload_info['savepath'] . 'thumb_' . $w . 'x'. $h . '_' . $upload_info['savename'];
-            }
-
-            $model = D('Brand');
+            // $model = M('Goods');
+            $model = D('Goods');
             $result = $model->create();
 
             if (!$result) {
@@ -59,10 +48,30 @@ class BrandController extends Controller
             if (!$result) {
                 $this->error('数据添加失败:' . $modle->getError(), U('add'));
             }
+
+            // 自动更新当前商品对应的索引
+            $this->addIndex($goods_id);
+            
+            // 日志层面管理 
+            
             // 成功重定向到list页
             $this->redirect('list', [], 0);
         } else {
-            // 表单展示
+            // 一: 获取关联数据
+            // 品牌
+            $this->assign('brand_list', M('Brand')->order('sort_number')->select());
+            // 分类
+            $this->assign('category_list', D('Category')->getTreeList());
+            // 长度单位
+            $this->assign('length_unit_list', M('LengthUnit')->select());
+            // 重量单位
+            $this->assign('weight_unit_list', M('WeightUnit')->select());
+            // 税类型
+            $this->assign('tax_list', M('Tax')->select());
+            // 库存状态
+            $this->assign('stock_status_list', M('StockStatus')->select());
+            
+            // 二: 表单展示
             $this->display();
         }
     }
@@ -74,28 +83,29 @@ class BrandController extends Controller
     public function listAction()
     {
 
-        $model = M('Brand');  
+        $model = M('Goods');  
 
         // 分页, 搜索, 排序等
         // 搜索, 筛选, 过滤
         // 判断用户传输的搜索条件, 进行处理
         // $filter 表示用户输入的内容
         // $cond 表示用在模型中查询条件
-        $cond = [];// 初始条件
-        $filter['filter_title'] = I('get.filter_title', '', 'trim');
-        if($filter['filter_title'] !== '') {
-            $cond['title'] = ['like', '%'.$filter['filter_title'].'%'];// 适当考虑索引问题
-        }
+        $cond = $filter = [];// 初始条件
+        // 在生成代码的基础上, 自定义完成搜索条件
+        // 
         // 分配筛选数据, 到模板, 为了展示搜索条件
         $this->assign('filter', $filter);
 
         // 排序
+        $sort = $order = [];
         // 考虑用户所传递的排序方式和字段
-        $order['field'] = I('get.field', 'sort_number', 'trim');// 初始排序, 字段
-        $order['type'] = I('get.type', 'asc', 'trim');// 初始排序, 方式
-        
-        $sort = [$order['field'] => $order['type']];
-        // $sort = $order['field'] . ' ' . $order['type'];
+        // 在生成代码的基础上,自定义默认的排序字段(假设,表中存在sort_number字段, 不存在需要修改)
+        // $order['field'] = I('get.field', 'sort_number', 'trim');// 初始排序, 字段
+        // $order['type'] = I('get.type', 'asc', 'trim');// 初始排序, 方式
+
+        if (!empty($order)) {
+            $sort = $order['field'] . ' ' . $order['type'];
+        }
         $this->assign('order', $order);
 
         // 分页
@@ -131,7 +141,7 @@ class BrandController extends Controller
 
         if (IS_POST) {
 
-            $model = D('Brand');
+            $model = D('Goods');
             $result = $model->create();
 
             if (!$result) {
@@ -148,8 +158,8 @@ class BrandController extends Controller
         } else {
 
             // 获取当前编辑的内容
-            $brand_id = I('get.brand_id', '', 'trim');
-            $this->assign('row', M('Brand')->find($brand_id));
+            $goods_id = I('get.goods_id', '', 'trim');
+            $this->assign('row', M('Goods')->find($goods_id));
 
             // 展示模板
             $this->display();
@@ -166,6 +176,7 @@ class BrandController extends Controller
         $operate = I('post.operate', 'delete', 'trim');
         // 确定ID列表
         $selected = I('post.selected', []);
+        
         // 如果为空数组, 表示没有选择, 则立即跳转回列表页.
         if (empty($selected)) {
             $this->redirect('list', [], 0);
@@ -175,8 +186,8 @@ class BrandController extends Controller
         switch ($operate) {
             case 'delete':
                 // 使用in条件, 删除全部的品牌
-                $cond = ['brand_id' => ['in', $selected]];
-                M('Brand')->where($cond)->delete();
+                $cond = ['goods_id' => ['in', $selected]];
+                M('Goods')->where($cond)->delete();
                 $this->redirect('list', [], 0);
                 break;
             default:
@@ -210,7 +221,7 @@ class BrandController extends Controller
                     $cond['brand_id'] = ['neq', $brand_id];
                 }
                 // 获取模型后, 利用条件获取匹配的记录数
-                $count = M('Brand')->where($cond)->count();
+                $count = M('Goods')->where($cond)->count();
                 // 如果记录数>0, 条件为真, 说明存在记录, 重复, 验证未通过, 响应false
                 echo $count ? 'false' : 'true';
             break;

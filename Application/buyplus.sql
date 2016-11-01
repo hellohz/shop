@@ -181,6 +181,10 @@ insert into kang_setting values (1, 'shop_title', 'BuyPlus(败家Shopping)', '�
 insert into kang_setting values (2, 'allow_comment', '5', '是否允许商品评论', 3, 1, 0);
 insert into kang_setting values (3, 'use_captcha', '1,3', '哪些页面使用验证码', 4, 2, 0);
 insert into kang_setting values (4, 'mate_description', 'BuyPlus(败家Shopping), 用BuyPlus，不败家！', 'mate描述description', 2, 1, 0);
+insert into kang_setting values (5, 'brand_thumb_width', '66', '品牌缩略图宽', 1, 1, 0);
+insert into kang_setting values (6, 'brand_thumb_height', '66', '品牌缩略图高', 1, 1, 0);
+
+
 -- 配置系统选项预设值
 create table kang_setting_option (
 	setting_option_id int unsigned auto_increment,-- 选项预设值的option value="option_id"
@@ -195,3 +199,104 @@ insert into kang_setting_option values (3, '评论', 3);
 insert into kang_setting_option values (4, '生成订单', 3);
 insert into kang_setting_option values (5, '是', 2);
 insert into kang_setting_option values (6, '否', 2);
+
+
+-- 商品相关数据存储表
+-- 仅仅提供数据存储, 和基本编辑, 没有额外的业务逻辑
+-- 长度单位
+create table kang_length_unit (
+	length_unit_id int unsigned auto_increment,
+	title varchar(32) not null default '',
+	primary key (length_unit_id)
+) charset=utf8;
+insert into kang_length_unit values (1, '厘米');
+insert into kang_length_unit values (2, '毫米');
+insert into kang_length_unit values (3, '英寸');
+insert into kang_length_unit values (4, '米');
+
+-- 重量单位
+create table kang_weight_unit (
+	weight_unit_id int unsigned auto_increment,
+	title varchar(32) not null default '',
+	primary key (weight_unit_id)
+) charset=utf8;
+insert into kang_weight_unit values (1, '克');
+insert into kang_weight_unit values (2, '千克');
+insert into kang_weight_unit values (3, '500克(斤)');
+
+-- 税类型	
+create table kang_tax (
+	tax_id int unsigned auto_increment,
+	title varchar(32) not null default '',
+	primary key (tax_id)
+) charset=utf8;
+insert into kang_tax values (1, '免税产品');
+insert into kang_tax values (2, '缴税产品');
+
+
+create table kang_stock_status (
+	stock_status_id int unsigned auto_increment,
+	title varchar(32) not null default '',
+	primary key (stock_status_id)
+) charset=utf8;
+insert into kang_stock_status values (1, '库存充足');
+insert into kang_stock_status values (2, '1-3周');
+insert into kang_stock_status values (3, '1-3天');
+insert into kang_stock_status values (4, '脱销');
+insert into kang_stock_status values (5, '预定');
+
+
+-- 商品表
+drop table if exists kang_goods;
+create table kang_goods (
+	-- 基本信息
+	goods_id int unsigned auto_increment,
+	name varchar(64) not null default '',
+	image varchar(255) not null default '',
+	image_thumb varchar(255) not null default '',
+	SKU varchar(16) not null default '', -- 库存单位
+	UPC varchar(255) not null default '', -- 通用商品代码
+	price decimal(10, 2) not null default 0.0,
+	quantity int unsigned not null default 0, -- 库存
+	minimum int unsigned not null default 1, -- 最小起订数量
+	subtract tinyint not null default 1, -- 是否减少库存
+	is_shipping tinyint not null default 1, -- 是否允许配送
+	date_available date not null default '0000-00-00', -- 供货日期
+	length int unsigned not null default 0,
+	width int unsigned not null default 0,
+	height int unsigned not null default 0,
+	weight int unsigned not null default 0,
+	status tinyint not null default 1, -- 是否可用
+	sort_number int not null default 0, -- 排序
+	description text, -- 商品描述
+	is_deleted tinyint not null default 0, -- 是否被删除
+	
+	-- SEO优化
+	meta_title varchar(255) not null default '',
+	meta_keywords varchar(255) not null default '',
+	meta_description varchar(1024) not null default '',
+
+	-- 关联数据
+	length_unit_id int unsigned not null default 0, -- 长度单位
+	weight_unit_id int unsigned not null default 0, -- 重量的单位
+	tax_id int unsigned not null default 0, -- 税类型ID
+	stock_status_id int unsigned not null default 0, -- 库存状态ID
+	brand_id int unsigned not null default 0, -- 所属品牌ID
+	category_id int unsigned not null default 0, -- 所属分类ID
+
+	created_at int not null default 0,
+	updated_at int not null default 0,
+
+	-- 索引约束们
+	primary key (goods_id),
+	index (brand_id),
+	index (category_id),
+	index (tax_id),
+	index (stock_status_id),
+	index (length_unit_id),
+	index (weight_unit_id),
+	index (sort_number),
+	index (name),
+	index (price),
+	unique key (UPC)
+) charset=utf8;
