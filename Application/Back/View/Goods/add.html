@@ -400,7 +400,7 @@ $(function() {
       for(var i=0; i<rows.length; ++i) {
         var attr = rows[i];
         var containerDiv = '<div class="form-group">';
-        containerDiv += '<label class="col-sm-2 control-label" for="input-attribute-' + attr.goods_attribute_id +'">' + attr.title + '</label>';
+        containerDiv += '<label class="col-sm-2 control-label" for="input-attribute-' + attr.goods_attribute_id +'"><span  data-toggle="tooltip" data-original-title="多值请使用|||分割, 例如:土豪金|||玫瑰紫" >' + attr.title + '</span></label>';
         containerDiv +='<div class="col-sm-1 text-center">';
         containerDiv += '<label class="control-label">';
         containerDiv += '<input type="checkbox" name="is_option[]" value="' + attr.goods_attribute_id + '"  class="form-control"></label>';
